@@ -1,4 +1,3 @@
-
 const Result = require("../models/Result");
 const Enrollment = require("../models/Enrollment");
 const TermReport = require("../models/TermReport");
@@ -8,7 +7,12 @@ const Term = require("../models/Term");
 const isValidNumber = (val) =>
   val !== undefined && val !== null && val !== "" && !isNaN(Number(val));
 
-const buildEnrollmentFilter = ({ academicUnitId, classId, armId, sessionId }) => {
+const buildEnrollmentFilter = ({
+  academicUnitId,
+  classId,
+  armId,
+  sessionId,
+}) => {
   const filter = {};
 
   if (academicUnitId) filter.academicUnitId = academicUnitId;
@@ -44,7 +48,7 @@ exports.addOrUpdateResults = async (req, res) => {
 
     for (const r of results) {
       const enrollment = await Enrollment.findById(r.enrollmentId).select(
-        "academicUnitId classId armId sessionId studentId"
+        "academicUnitId classId armId sessionId studentId",
       );
 
       if (!enrollment) continue;
@@ -123,7 +127,7 @@ exports.getClassResults = async (req, res) => {
 
     const enrollments = await Enrollment.find(enrollmentFilter).populate(
       "studentId",
-      "name admissionNumber"
+      "name admissionNumber",
     );
 
     const validEnrollments = enrollments.filter((e) => e.studentId);
@@ -176,7 +180,7 @@ exports.getAllClassResults = async (req, res) => {
 
     const enrollments = await Enrollment.find(enrollmentFilter).populate(
       "studentId",
-      "name admissionNumber"
+      "name admissionNumber",
     );
 
     const validEnrollments = enrollments.filter((e) => e.studentId);
@@ -266,7 +270,7 @@ exports.getStudentTermResults = async (req, res) => {
 
     if (
       req.student.blocked ||
-      req.student.archived 
+      req.student.archived
       // req.student.status === "graduated"
     ) {
       return res.status(403).json({
@@ -278,7 +282,8 @@ exports.getStudentTermResults = async (req, res) => {
     const enrollment = await Enrollment.findOne({
       studentId: req.student._id,
       sessionId,
-    }).select("_id academicUnitId studentId classId armId sessionId")
+    })
+      .select("_id academicUnitId studentId classId armId sessionId")
       .populate("classId", "name")
       .populate("armId", "name")
       .populate("academicUnitId", "name");
@@ -303,7 +308,11 @@ exports.getStudentTermResults = async (req, res) => {
       publicationFilter.academicUnitId = academicUnitId;
     }
 
-    const publication = await ResultPublication.findOne( {sessionId, termId, isPublished: true,});
+    const publication = await ResultPublication.findOne({
+      sessionId,
+      termId,
+      isPublished: true,
+    });
 
     if (!publication) {
       return res.status(403).json({
@@ -315,7 +324,7 @@ exports.getStudentTermResults = async (req, res) => {
     const { termResults, termAverage } = await Result.computeTermly(
       enrollment._id,
       sessionId,
-      termId
+      termId,
     );
 
     if (!termResults || termResults.length === 0) {
@@ -335,8 +344,8 @@ exports.getStudentTermResults = async (req, res) => {
       success: true,
       results: termResults,
       termAverage,
-      classId: enrollment.classId,   // { _id, name } for the SELECTED session
-      armId: enrollment.armId,       // { _id, name } for the SELECTED session
+      classId: enrollment.classId, // { _id, name } for the SELECTED session
+      armId: enrollment.armId, // { _id, name } for the SELECTED session
       academicUnitId: enrollment.academicUnitId, // NEW
       comments: {
         classTeacher: report?.classTeacherComment || "",
@@ -379,9 +388,8 @@ exports.getStudentYearlyResults = async (req, res) => {
       });
     }
 
-    const enrollment = await Enrollment.findById(enrollmentId).select(
-      "academicUnitId"
-    );
+    const enrollment =
+      await Enrollment.findById(enrollmentId).select("academicUnitId");
 
     const terms = await Term.find({ sessionId }).select("_id name");
 
@@ -401,14 +409,13 @@ exports.getStudentYearlyResults = async (req, res) => {
       publicationFilter.academicUnitId = enrollment.academicUnitId;
     }
 
-    const publications = await ResultPublication.find(publicationFilter).select(
-      "termId"
-    );
+    const publications =
+      await ResultPublication.find(publicationFilter).select("termId");
 
     const publishedTermIds = publications.map((p) => p.termId.toString());
 
     const unpublishedTerms = terms.filter(
-      (term) => !publishedTermIds.includes(term._id.toString())
+      (term) => !publishedTermIds.includes(term._id.toString()),
     );
 
     if (unpublishedTerms.length > 0) {
@@ -438,11 +445,102 @@ exports.getStudentYearlyResults = async (req, res) => {
 // ----------------------------
 // Get Results By Subject
 // ----------------------------
+// exports.getResultsBySubject = async (req, res) => {
+//   const { academicUnitId, subjectId, classId, armId, sessionId, termId } =
+//     req.query;
+
+//   try {
+//     const enrollmentFilter = buildEnrollmentFilter({
+//       academicUnitId,
+//       classId,
+//       armId,
+//       sessionId,
+//     });
+
+//     const enrollments = await Enrollment.find(enrollmentFilter).populate(
+//       "studentId",
+//       "name admissionNumber"
+//     );
+
+//     const validEnrollments = enrollments.filter((enroll) => enroll.studentId);
+
+//     if (!validEnrollments.length) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "No students enrolled",
+//       });
+//     }
+
+//     const enrollmentIds = validEnrollments.map((e) => e._id);
+
+//     const resultFilter = {
+//       enrollmentId: { $in: enrollmentIds },
+//       subjectId,
+//       sessionId,
+//       termId,
+//     };
+
+//     if (academicUnitId) resultFilter.academicUnitId = academicUnitId;
+
+//     const results = await Result.find(resultFilter);
+
+//     const formatted = validEnrollments.map((enroll) => {
+//       const existing = results.find(
+//         (r) => r.enrollmentId.toString() === enroll._id.toString()
+//       );
+
+//       return {
+//         enrollmentId: enroll._id,
+//         academicUnitId: enroll.academicUnitId,
+//         student: {
+//           id: enroll.studentId._id,
+//           name: enroll.studentId.name,
+//           admissionNumber: enroll.studentId.admissionNumber,
+//         },
+//         subjectId,
+//         termId,
+//         sessionId,
+//         ca1: existing?.ca1 ?? "",
+//         ca2: existing?.ca2 ?? "",
+//         ca3: existing?.ca3 ?? "",
+//         ca4: existing?.ca4 ?? "",
+//         exam: existing?.exam ?? "",
+//         total: existing?.total ?? "",
+//         grade: existing?.grade ?? "",
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       count: formatted.length,
+//       data: formatted,
+//     });
+//   } catch (error) {
+//     console.error("getResultsBySubject error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Failed to fetch results",
+//       error: process.env.NODE_ENV === "production" ? undefined : error.message,
+//     });
+//   }
+// };
+
+// ----------------------------
+// Get Results By Subject
+// ----------------------------
 exports.getResultsBySubject = async (req, res) => {
   const { academicUnitId, subjectId, classId, armId, sessionId, termId } =
     req.query;
 
   try {
+    if (!subjectId || !sessionId || !termId) {
+      return res.status(400).json({
+        success: false,
+        message: "subjectId, sessionId, and termId are required",
+      });
+    }
+
+    // 1. Find the enrollments for the specified session and class
     const enrollmentFilter = buildEnrollmentFilter({
       academicUnitId,
       classId,
@@ -452,54 +550,82 @@ exports.getResultsBySubject = async (req, res) => {
 
     const enrollments = await Enrollment.find(enrollmentFilter).populate(
       "studentId",
-      "name admissionNumber"
+      "name admissionNumber",
     );
 
     const validEnrollments = enrollments.filter((enroll) => enroll.studentId);
 
     if (!validEnrollments.length) {
-      return res.status(404).json({
-        success: false,
-        message: "No students enrolled",
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
       });
     }
 
     const enrollmentIds = validEnrollments.map((e) => e._id);
 
-    const resultFilter = {
+    // 2. Query Result collection ONLY by enrollmentIds, subjectId, sessionId, termId
+    // Note: Do NOT filter Result by academicUnitId directly because older result entries
+    // may have had academicUnitId left empty or optional.
+    const results = await Result.find({
       enrollmentId: { $in: enrollmentIds },
       subjectId,
       sessionId,
       termId,
-    };
+    }).lean();
 
-    if (academicUnitId) resultFilter.academicUnitId = academicUnitId;
+    // 3. Index results by enrollmentId string for fast, 100% reliable matching
+    const resultMap = new Map();
+    results.forEach((r) => {
+      const eId = r.enrollmentId?.toString();
+      if (eId) {
+        resultMap.set(eId, r);
+      }
+    });
 
-    const results = await Result.find(resultFilter);
-
+    // 4. Merge scores into the enrolled student records
     const formatted = validEnrollments.map((enroll) => {
-      const existing = results.find(
-        (r) => r.enrollmentId.toString() === enroll._id.toString()
-      );
+      const enrollIdStr = enroll._id.toString();
+      const existing = resultMap.get(enrollIdStr);
 
       return {
+        _id: existing?._id || null, // Needed for frontend deletion & unique keys
         enrollmentId: enroll._id,
         academicUnitId: enroll.academicUnitId,
         student: {
           id: enroll.studentId._id,
           name: enroll.studentId.name,
-          admissionNumber: enroll.studentId.admissionNumber,
+          admissionNumber: enroll.studentId.admissionNumber || "N/A",
         },
         subjectId,
         termId,
         sessionId,
-        ca1: existing?.ca1 ?? "",
-        ca2: existing?.ca2 ?? "",
-        ca3: existing?.ca3 ?? "",
-        ca4: existing?.ca4 ?? "",
-        exam: existing?.exam ?? "",
-        total: existing?.total ?? "",
-        grade: existing?.grade ?? "",
+        ca1:
+          existing?.ca1 !== undefined && existing?.ca1 !== null
+            ? existing.ca1
+            : "",
+        ca2:
+          existing?.ca2 !== undefined && existing?.ca2 !== null
+            ? existing.ca2
+            : "",
+        ca3:
+          existing?.ca3 !== undefined && existing?.ca3 !== null
+            ? existing.ca3
+            : "",
+        ca4:
+          existing?.ca4 !== undefined && existing?.ca4 !== null
+            ? existing.ca4
+            : "",
+        exam:
+          existing?.exam !== undefined && existing?.exam !== null
+            ? existing.exam
+            : "",
+        total:
+          existing?.total !== undefined && existing?.total !== null
+            ? existing.total
+            : "",
+        grade: existing?.grade || "",
       };
     });
 
@@ -569,7 +695,7 @@ exports.getResultsByStudent = async (req, res) => {
       .lean();
 
     const enrollmentMap = new Map(
-      enrollments.map((enrollment) => [enrollment._id.toString(), enrollment])
+      enrollments.map((enrollment) => [enrollment._id.toString(), enrollment]),
     );
 
     const grouped = {};
@@ -588,7 +714,8 @@ exports.getResultsByStudent = async (req, res) => {
             result.academicUnitId?.name ||
             enrollment.academicUnitId?.name ||
             "N/A",
-          session: result.sessionId?.name || enrollment.sessionId?.name || "N/A",
+          session:
+            result.sessionId?.name || enrollment.sessionId?.name || "N/A",
           term: result.termId?.name || "N/A",
           class: enrollment.classId?.name || "N/A",
           arm: enrollment.armId?.name || "N/A",
@@ -608,26 +735,26 @@ exports.getResultsByStudent = async (req, res) => {
       //   grade: result.grade,
       // });
       grouped[key].subjects.push({
-  _id: result._id,
-  resultId: result._id,
+        _id: result._id,
+        resultId: result._id,
 
-  subjectId: result.subjectId?._id || result.subjectId,
-  subject: result.subjectId?.name || "Unknown Subject",
+        subjectId: result.subjectId?._id || result.subjectId,
+        subject: result.subjectId?.name || "Unknown Subject",
 
-  ca1: result.ca1,
-  ca2: result.ca2,
-  ca3: result.ca3,
-  ca4: result.ca4,
-  exam: result.exam,
-  total: result.total,
-  grade: result.grade,
-});
+        ca1: result.ca1,
+        ca2: result.ca2,
+        ca3: result.ca3,
+        ca4: result.ca4,
+        exam: result.exam,
+        total: result.total,
+        grade: result.grade,
+      });
     }
 
     const groupedResults = Object.values(grouped).map((group) => {
       const total = group.subjects.reduce(
         (sum, subject) => sum + (Number(subject.total) || 0),
-        0
+        0,
       );
 
       return {
@@ -707,7 +834,7 @@ exports.getStudentProfile = async (req, res) => {
       .lean();
 
     const enrollmentMap = new Map(
-      enrollments.map((enrollment) => [enrollment._id.toString(), enrollment])
+      enrollments.map((enrollment) => [enrollment._id.toString(), enrollment]),
     );
 
     const history = {};
@@ -735,7 +862,8 @@ exports.getStudentProfile = async (req, res) => {
             result.academicUnitId?.name ||
             enrollment.academicUnitId?.name ||
             "N/A",
-          session: result.sessionId?.name || enrollment.sessionId?.name || "N/A",
+          session:
+            result.sessionId?.name || enrollment.sessionId?.name || "N/A",
           class: enrollment.classId?.name || "N/A",
           arm: enrollment.armId?.name || "N/A",
           terms: {},
@@ -762,27 +890,27 @@ exports.getStudentProfile = async (req, res) => {
       // });
 
       history[historyKey].terms[termKey].subjects.push({
-  _id: result._id,
-  resultId: result._id,
+        _id: result._id,
+        resultId: result._id,
 
-  subjectId: result.subjectId?._id || result.subjectId,
-  subject: result.subjectId?.name || "Unknown Subject",
+        subjectId: result.subjectId?._id || result.subjectId,
+        subject: result.subjectId?.name || "Unknown Subject",
 
-  ca1: result.ca1,
-  ca2: result.ca2,
-  ca3: result.ca3,
-  ca4: result.ca4,
-  exam: result.exam,
-  total: result.total,
-  grade: result.grade,
-});
+        ca1: result.ca1,
+        ca2: result.ca2,
+        ca3: result.ca3,
+        ca4: result.ca4,
+        exam: result.exam,
+        total: result.total,
+        grade: result.grade,
+      });
     }
 
     const academicHistory = Object.values(history).map((session) => {
       const terms = Object.values(session.terms).map((term) => {
         const total = term.subjects.reduce(
           (sum, subject) => sum + (Number(subject.total) || 0),
-          0
+          0,
         );
 
         return {
@@ -816,7 +944,6 @@ exports.getStudentProfile = async (req, res) => {
     });
   }
 };
-
 
 exports.deleteSingleResult = async (req, res) => {
   try {

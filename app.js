@@ -4,6 +4,7 @@ const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const compression = require("compression");
 const rateLimit = require("express-rate-limit");
+const dotenv = require("dotenv");
 const morgan = require("morgan");
 
 const authRoutes = require("./src/routes/authRoutes");
@@ -38,16 +39,15 @@ const sectionRoutes = require("./src/routes/sectionRoutes");
 const academicUnitRoutes = require("./src/routes/academicUnitRoutes");
 const feeTemplateRoutes = require("./src/routes/feeTemplateRoutes");
 
-
 // const notFound = require("./src/middleware/notFound");
-const {notFound, errorHandler} = require("./src/middleware/errorHandler");
+const { notFound, errorHandler } = require("./src/middleware/errorHandler");
 const { getFeeTemplate } = require("./src/controllers/feeTemplateController");
 
 const app = express();
 
 const allowedOrigins = process.env.FRONTEND_URL
-? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
-: [];
+  ? process.env.FRONTEND_URL.split(",").map((url) => url.trim())
+  : [];
 console.log("Allowed origins:", allowedOrigins);
 
 app.use(helmet());
@@ -58,14 +58,14 @@ app.use(
     origin(origin, callback) {
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
-      } 
-      
+      }
+
       return callback(new Error("Not allowed by CORS"));
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 // app.use(
@@ -94,7 +94,7 @@ app.use(
       success: false,
       message: "Too many requests. Please try again later.",
     },
-  })
+  }),
 );
 
 app.get("/api/health", (req, res) => {
@@ -136,7 +136,10 @@ app.use("/api/student-fees", require("./src/routes/fees/studentFeeRoutes"));
 
 app.use("/api/student-fees", require("./src/routes/fees/studentFeeRoutes"));
 app.use("/api/lessons", lessonRoutes);
-app.use("/api/result-publications", require("./src/routes/resultPublicationRoutes"));
+app.use(
+  "/api/result-publications",
+  require("./src/routes/resultPublicationRoutes"),
+);
 app.use("/api/organizations", organizationRoutes);
 app.use("/api/schools", schoolRoutes);
 app.use("/api/sections", sectionRoutes);
